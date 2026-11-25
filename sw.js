@@ -1,0 +1,22 @@
+// Dartmaster offline: sidan sparas i iPaden och startar utan internet.
+// Med internet hämtas en ny version i bakgrunden och används nästa gång appen startas.
+const CACHE = "dartmaster-0b663e207663";
+const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-512.png"];
+self.addEventListener("install", (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+});
+self.addEventListener("activate", (e) => {
+  e.waitUntil(caches.keys()
+    .then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    .then(() => self.clients.claim()));
+});
+self.addEventListener("fetch", (e) => {
+  if (e.request.method !== "GET") return;
+  const nav = e.request.mode === "navigate";
+  e.respondWith(caches.open(CACHE).then(async (c) => {
+    const hit = await c.match(nav ? "./index.html" : e.request, { ignoreSearch: true });
+    if (hit) return hit;
+    try { return await fetch(e.request); }
+    catch (err) { return (await c.match("./index.html")) || Response.error(); }
+  }));
+});
